@@ -1,1 +1,1 @@
-#Jupyter Notebook para procesar trayectorias de DM
+#Jupyter Notebook para procesar trayectorias de DM utilizando el modelo del 2PT
