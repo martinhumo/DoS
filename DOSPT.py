@@ -175,7 +175,7 @@ class Trajectory:
 
         E = (Es+Eg)/B
         E /= nm
-        print('Energy/particle', E)
+        
 
         #Entropy S
         if stat == 'c':   
@@ -193,7 +193,7 @@ class Trajectory:
 
         S =kb*(Ss+Sg)
         S /= nm
-        print('Entropy/particle', S)
+     
 
         #Helmoltz Free Energy
         if stat == 'c':                              #Classic weighting
@@ -209,7 +209,8 @@ class Trajectory:
 
         A =  (As+Ag)/B
         A /= nm
-        print('Helmholtz free energy/particle', A)
+
+        return E, S, A    
 
     def Return_DOS_rot(self,rposis,tstep,Dstep,temp,m,nb):
         """This function return the rotational (DOS).
@@ -403,7 +404,6 @@ class Trajectory:
 
         E =  (Es+Eg)/B
         E /= nm
-        print('Energy/particle', E)
 
         #Entropy S
         if stat == 'c':
@@ -420,7 +420,6 @@ class Trajectory:
 
         S =kb*(Ss+Sg)
         S /= nm
-        print('Entropy/particle', S)
 
         #Helmoltz Free Energy
         if stat == 'c':                              #Classic weighting
@@ -436,7 +435,8 @@ class Trajectory:
 
         A =  (As+Ag)/B
         A /= nm
-        print('Helmholtz free energy/particle', A)
+
+        return E, S, A
 
     def Return_DOS_vib(self,rposis,tstep,Dstep,temp,m,nb):
         """This function return the vibrational (DOS).
@@ -553,7 +553,6 @@ class Trajectory:
 
         E = (Es)/B
         E /= nm
-        print('Energy/particle', E)
 
         #Entropy S
         if stat == 'c':
@@ -566,7 +565,6 @@ class Trajectory:
 
         S =kb*(Ss)
         S /= nm
-        print('Entropy/particle', S)
 
         #Helmoltz Free Energy
         if stat == 'c':                              #Classic weighting
@@ -579,4 +577,5 @@ class Trajectory:
 
         A =  (As)/B
         A /= nm
-        print('Helmholtz free energy/particle', A)
+
+        return E, S, A
