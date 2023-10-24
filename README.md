@@ -1,1 +1,2 @@
-#Jupyter Notebook para procesar trayectorias de DM utilizando el modelo del 2PT
+#ProcDos es la Jupyter Notebook para procesar trayectorias de DM utilizando el modelo del 2PT programado en python por J. Martín H.
+El proceso consiste en importar el paquete DOSPT.py para luego utilzar la clase trayectoria o funciones para trabajr directamente con las DoS.
