@@ -1,5 +1,6 @@
 #Este archivo se genero a partir de las notebooks "Copia Dos_trn", "Copia  DoS_rot" , "Copia DoS_vib" ubicada en 
 #Lammps/2023/Barrido largo y flexibilidad/
+#28/12/23 Se agregó que DoS trn y rot devuelva las velocidades
 
 import numpy as np
 from ovito.io import import_file
@@ -96,7 +97,7 @@ class Trajectory:
         
         freq = np.fft.rfftfreq(n, d=Ts)
         DOS = ((2.)/(kb*T))*fft
-        return DOS, freq
+        return DOS, freq, CMvs
 
     def Return_DOS_partition_trn(self,DOSt,freq,temp,m,nb,rho):
         """This function return the translational Dos_g_trn gas 
@@ -290,7 +291,7 @@ class Trajectory:
         I = np.mean(Imom[:,:,:],axis=(0,1))
         freq = np.fft.rfftfreq(n, d=Ts)
         DOS = ((2.)/(kb*T))*fft
-        return DOS, freq, I
+        return DOS, freq, I, CMws, Imom
 
 
 
