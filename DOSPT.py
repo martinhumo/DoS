@@ -7,7 +7,7 @@ from ovito.io import import_file
 from tqdm import tqdm
  
 class Trajectory:
-    def __init__(self, filename, attr, skip, fcv, fcx):
+    def __init__(self, filename, attr, skip, fcv, fcx, f_stop=None):
         """
         filename         : path to the trajectory file with sorted and format = id mol x y z fx fy fz vx vy vz
         attr             : particles attributes to be loaded in memory = coordinates(0), forces(1) or velocities(2)
@@ -15,14 +15,18 @@ class Trajectory:
                            (for example, if trajectory is 9000 steps long, and skip = 10, every tenth step
                            is evaluated, 900 steps in total; use skip = 1 to take every step of the MD)
         fcv              : conversion factor to have velocities  [m/s]
-        fcx              : conversion factor to have positions in [m].
+        fcx              : conversion factor to have positions in [m]
+        f_stop           : last frame to be loaded. If f_stop = None, all frames are loaded.
          """
         pipeline = import_file(filename) #import file
         self.n_atoms = pipeline.compute().particles.count #number of atoms
         self.n_steps_total = pipeline.source.num_frames
 
         self.skip = skip
-        self.n_steps = self.n_steps_total // self.skip
+        if f_stop == None:
+            self.n_steps = self.n_steps_total // self.skip
+        else:
+            self.n_steps = f_stop // self.skip
 
         attributes = ('coordinates', 'forces', 'velocities')
         print('Are going to be loaded: particles {}'.format(attributes[attr]))
