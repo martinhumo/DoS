@@ -4,6 +4,7 @@
 
 import numpy as np
 from ovito.io import import_file
+from tqdm import tqdm
  
 class Trajectory:
     def __init__(self, filename, attr, skip, fcv, fcx):
@@ -34,8 +35,10 @@ class Trajectory:
             self.boxsize = np.empty((self.n_steps, 3, 2))
         count = 0
         stop = self.n_steps
-        for step in range(self.n_steps):
-            print('Loading Frame:', step*skip,' ',end='\x1b[1K\r')
+        
+        print('--- Loading Trajectory ---')
+        for step in tqdm(range(self.n_steps)):
+
             frame = step * self.skip 
             try:
 
@@ -63,7 +66,7 @@ class Trajectory:
         1° Takes de power spectral density  of  molecule's  mass center velocities, 
         2° Sum it for x,y,z and whole system 
         3° weigh the sum with kb*T 
-        Returns: freq [1/s] ; Dos_trn[tot,x,y,z] [s] 
+        Returns: freq [1/s] ; Dos_trn[tot,x,y,z] [s]  ; CMvs[x,y,z] [m/s]
         Needs:
         *self.coordinates: atoms velocities [a.u.]
         *tstep: simulation timestep [s]
@@ -220,7 +223,7 @@ class Trajectory:
         3° Takes de power spectral density  of  molecule  mass center angular velocities,
         4° Sum it for x,y,z and whole system
         5° weigh the sum with kb*T
-        Returns: freq [1/s] ; Dos_rot[tot,a,b,c] [s] ; I [Kgm²]
+        Returns: freq [1/s] ; Dos_rot[tot,a,b,c] [s] ; <I> [Kgm²] ; CMws[a,b,c] [rad/s] ; Imom[a,b,c] [kgm²]
         Needs:
         *self.coordinates: velocities [m/s]
         *rposi: distance [m]
