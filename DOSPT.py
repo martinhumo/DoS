@@ -146,7 +146,7 @@ class Trajectory:
 
         return cDOSt, cDOSg, cDOSs, vfreq, f, Delta
 
-    def Return_thermoproperties_trn(self,cDOSg,cDOSs,vfreq,T,m,f,Delta,V,nb,stat):
+    def Return_thermoproperties_trn(self,cDOSg,cDOSs,vfreq,T,m,f,Delta,V,nb,stat,weight_f=False):
         """Function that return Internal Energy, Entropy and Helmoltz Free Energy
         only for trn component.
         Returns: E/particle [J]; S/particle [J/K] ; A/particle [J]
@@ -161,6 +161,7 @@ class Trajectory:
         * V: Box volume [m3]
         * nb: beads per particle []
         * stat: quantum or classic solid-like weighting function ['q' or 'c']
+        * weight_f: return weighting function (default: False)
         """
         import scipy.integrate as integrate
         from scipy.constants import c,h,Boltzmann #light speed in [m/s], #Planck's constant  [J*s]
@@ -218,7 +219,7 @@ class Trajectory:
         A =  (As+Ag)/B
         A /= nm
 
-        return E, S, A    
+        return E, S, A, Wes, Weg, Wss, Wsg, Was, Wag if weight_f else E, S, A
 
     def Return_DOS_rot(self,rposis,tstep,Dstep,temp,m,nb):
         """This function return the rotational (DOS).
@@ -378,7 +379,7 @@ class Trajectory:
 
         return cDOSt, cDOSg, cDOSs, vfreq, f, Delta
 
-    def Return_thermoproperties_rot(self,cDOSg,cDOSs,vfreq,T,I,nb,stat,sigma):
+    def Return_thermoproperties_rot(self,cDOSg,cDOSs,vfreq,T,I,nb,stat,sigma,weight_f=False):
         """Function that return Internal Energy, Entropy and Helmoltz Free Energy
         only for rotational component.
         Returns: E/particle [J]; S/particle [J/K] ; A/particle [J]
@@ -391,6 +392,7 @@ class Trajectory:
         * nb: beads per particle []
         * stat: quantum or classic solid-like weighting function ['q' or 'c']
         * sigma: Rotational symmetry []
+        * weight_f: return weighting function (default: False)
         """
         import scipy.integrate as integrate
         from scipy.constants import c,h,Boltzmann #light speed in [m/s], #Planck's constant  [J*s]
@@ -444,7 +446,7 @@ class Trajectory:
         A =  (As+Ag)/B
         A /= nm
 
-        return E, S, A
+        return E, S, A, Wes, Weg, Wss, Wsg, Was, Wag  if weight_f else E, S, A
 
     def Return_DOS_vib(self,rposis,tstep,Dstep,temp,m,nb):
         """This function return the vibrational (DOS).
@@ -533,7 +535,7 @@ class Trajectory:
 
         return cDOSt, cDOSs, vfreq
 
-    def Return_thermoproperties_vib(self,cDOSs,vfreq,T,nb,stat):
+    def Return_thermoproperties_vib(self,cDOSs,vfreq,T,nb,stat,weight_f=False):
         """Function that return Internal Energy, Entropy and Helmoltz Free Energy
         only for rotational component.
         Returns: E/particle [J]; S/particle [J/K] ; A/particle [J]
@@ -543,6 +545,7 @@ class Trajectory:
         * T: temperature [K]
         * nb: beads per particle []
         * stat: quantum or classic solid-like weighting function ['q' or 'c']
+        * weight_f: return weighting function (default: False)
         """
         import scipy.integrate as integrate
         from scipy.constants import c,h,Boltzmann #light speed in [m/s], #Planck's constant  [J*s]
@@ -586,4 +589,4 @@ class Trajectory:
         A =  (As)/B
         A /= nm
 
-        return E, S, A
+        return E, S, A, Wes, Wss, Was if weight_f else E, S, A
