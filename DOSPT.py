@@ -26,7 +26,10 @@ class Trajectory:
         if f_stop == None:
             self.n_steps = self.n_steps_total // self.skip
         else:
-            self.n_steps = f_stop // self.skip
+            if f_stop > self.n_steps_total:
+                raise ValueError('f_stop > n_steps_total')
+            else:
+                self.n_steps = f_stop // self.skip
 
         attributes = ('coordinates', 'forces', 'velocities')
         print('Are going to be loaded: particles {}'.format(attributes[attr]))
@@ -45,7 +48,6 @@ class Trajectory:
 
             frame = step * self.skip 
             try:
-
                 if attr == 0:
                     self.coordinates[step] = pipeline.compute(frame).particles.positions*fcx
                     self.boxsize[step,:,0] = pipeline.compute(frame).cell[:,3]*fcx
@@ -74,7 +76,7 @@ class Trajectory:
         Needs:
         *self.coordinates: atoms velocities [a.u.]
         *tstep: simulation timestep [s]
-        *Dstep: every few timestep each frame is recorded []
+        *Dstep: every few timestep each frame is recorded in the simulation []
         *temp: temperature [K]
         *m: atoms mass (sorted array for molecule)[kg]
         *nb: atoms per molecule []  
@@ -219,7 +221,7 @@ class Trajectory:
         A =  (As+Ag)/B
         A /= nm
 
-        return E, S, A, Wes, Weg, Wss, Wsg, Was, Wag if weight_f else E, S, A
+        return (E, S, A, Wes, Weg, Wss, Wsg, Was, Wag) if weight_f else (E, S, A)
 
     def Return_DOS_rot(self,rposis,tstep,Dstep,temp,m,nb):
         """This function return the rotational (DOS).
@@ -233,7 +235,7 @@ class Trajectory:
         *self.coordinates: velocities [m/s]
         *rposi: distance [m]
         *tstep: simulation timestep [s]
-        *Dstep: every few timestep each frame is recorded []
+        *Dstep: every few timestep each frame is recorded in the simulation []
         *temp: temperature [K]
         *m: atom mass (sorted array for molecule)[kg]
         *nb: atoms per molecule []
@@ -446,7 +448,7 @@ class Trajectory:
         A =  (As+Ag)/B
         A /= nm
 
-        return E, S, A, Wes, Weg, Wss, Wsg, Was, Wag  if weight_f else E, S, A
+        return (E, S, A, Wes, Weg, Wss, Wsg, Was, Wag) if weight_f else (E, S, A)
 
     def Return_DOS_vib(self,rposis,tstep,Dstep,temp,m,nb):
         """This function return the vibrational (DOS).
@@ -461,7 +463,7 @@ class Trajectory:
         *self.coordinates: velocities [a.u.]
         *rposi: distance to mass center [m]
         *tstep: simulation timestep [s]
-        *Dstep: every few timestep each frame is recorded []
+        *Dstep: every few timestep each frame is recorded in the simulation []
         *temp: temperature [K]
         *m: atom mass (sorted array for molecule)[kg]
         *nb: atoms per molecule []
@@ -589,4 +591,4 @@ class Trajectory:
         A =  (As)/B
         A /= nm
 
-        return E, S, A, Wes, Wss, Was if weight_f else E, S, A
+        return (E, S, A, Wes, Wss, Was) if weight_f else (E, S, A)
