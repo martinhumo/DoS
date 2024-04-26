@@ -134,7 +134,7 @@ class Trajectory:
         vfreq = freq/c
         #fluidicity f
         cdos0 = cDOSt[0] #gas-like difussive component
-        Delta = (2*cdos0/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho)**(1/3))*((6/np.pi)**(2/3)) 
+        Delta = (2*(cdos0/c)/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho/mi)**(1/3))*((6/np.pi)**(2/3)) #Delta = (2*cdos0/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho)**(1/3))*((6/np.pi)**(2/3)) 
  
         def y(f,Delta):
             return 2*(Delta**(-9/2))*(f**(15/2)) - 6*(Delta**(-3))*(f**5) - \
@@ -377,7 +377,7 @@ class Trajectory:
         vfreq = freq/c
         #fluidicity f
         cdos0 = cDOSt[0] #gas-like difussive component
-        Delta = (2*cdos0/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho)**(1/3))*((6/np.pi)**(2/3))
+        Delta = (2*(cdos0/c)/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho/mi)**(1/3))*((6/np.pi)**(2/3))  #Delta = (2*cdos0/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho)**(1/3))*((6/np.pi)**(2/3))
 
         def y(f,Delta):
             return 2*(Delta**(-9/2))*(f**(15/2)) - 6*(Delta**(-3))*(f**5) - \
@@ -436,8 +436,8 @@ class Trajectory:
             Wss[0] = 0.
         Ss =  integrate.simps(cDOSs*Wss,x=vfreq)
 
-        tit= np.array([ (h**2) / (8.*np.pi*I[i]*kb) for i in range(3)])
-        Wsg = (1./3.)*np.log( ( ((np.pi**0.5)*np.exp(3/2)) / sigma ) *(T**3 / (tit[0]*tit[1]*tit[2])**0.5)) # Eq. 25b Lin2010
+        tit= np.mean(np.array([ (h**2) / (8.*np.pi*I[i]*kb) for i in range(2)])) #Linear rigid rotor entropy (Eq. 20 Yang, Lin 2015)
+        Wsg = (1./3.)*(1 + np.log( T/(sigma*tit)))
         Sg =  integrate.simps(cDOSg*Wsg,x=vfreq)
 
         S =kb*(Ss+Sg)
