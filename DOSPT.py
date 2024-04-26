@@ -134,7 +134,7 @@ class Trajectory:
         vfreq = freq/c
         #fluidicity f
         cdos0 = cDOSt[0] #gas-like difussive component
-        Delta = (2*cdos0/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho)**(1/3))*((6/np.pi)**(2/3)) 
+        Delta = (2*(cdos0/c)/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho/mi)**(1/3))*((6/np.pi)**(2/3))
  
         def y(f,Delta):
             return 2*(Delta**(-9/2))*(f**(15/2)) - 6*(Delta**(-3))*(f**5) - \
@@ -367,7 +367,7 @@ class Trajectory:
         vfreq = freq/c
         #fluidicity f
         cdos0 = cDOSt[0] #gas-like difussive component
-        Delta = (2*cdos0/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho)**(1/3))*((6/np.pi)**(2/3))
+        Delta = (2*(cdos0/c)/(9*nm))*np.sqrt((np.pi*kb*T)/mi)*((rho/mi)**(1/3))*((6/np.pi)**(2/3)) 
 
         def y(f,Delta):
             return 2*(Delta**(-9/2))*(f**(15/2)) - 6*(Delta**(-3))*(f**5) - \
