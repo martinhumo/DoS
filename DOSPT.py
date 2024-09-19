@@ -507,10 +507,11 @@ class Trajectory:
 
 
         fft  = np.zeros((n//2 +1, 4)) #Sigle sided fft (only freq > 0 )
+        m_system = np.tile(m, nm) #Array with system masses
         for atom in range(self.n_atoms):
             vibv = vibvs[:,atom,:]
             for i in range(3):   #(xyz)
-                ffti = ( Ts  / (self.n_steps-1))*(np.abs(np.fft.rfft(vibv[:,i], n=n))**2)*m[i]
+                ffti = ( Ts  / (self.n_steps-1))*(np.abs(np.fft.rfft(vibv[:,i], n=n))**2)*m_system[atom]
                 fft[:,i+1] += ffti
                 fft[:,0] += ffti
 
