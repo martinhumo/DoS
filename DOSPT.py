@@ -1,13 +1,9 @@
-#Este archivo se genero a partir de las notebooks "Copia Dos_trn", "Copia  DoS_rot" , "Copia DoS_vib" ubicada en 
-#Lammps/2023/Barrido largo y flexibilidad/
-#28/12/23 Se agregó que DoS trn y rot devuelva las velocidades
-
 import numpy as np
 from ovito.io import import_file
 from tqdm import tqdm
  
 class Trajectory:
-    def __init__(self, filename, attr, skip, fcv, fcx, f_stop=None):
+   def __init__(self, filename, attr, skip, fcv, fcx, f_stop=None, mask=None):
         """
         filename         : path to the trajectory file with sorted and format = id mol x y z fx fy fz vx vy vz
         attr             : particles attributes to be loaded in memory = coordinates(0), forces(1) or velocities(2)
@@ -17,7 +13,9 @@ class Trajectory:
         fcv              : conversion factor to have velocities  [m/s]
         fcx              : conversion factor to have positions in [m]
         f_stop           : last frame to be loaded. If f_stop = None, all frames are loaded.
-         """
+        mask             : boolean array indicating which atoms to select in a single molecule
+        """
+
         pipeline = import_file(filename) #import file
         self.n_atoms = pipeline.compute().particles.count #number of atoms
         self.n_steps_total = pipeline.source.num_frames
@@ -37,12 +35,24 @@ class Trajectory:
         print('Frames to be loaded= ',self.n_steps)
 
 
-        self.coordinates = np.empty((self.n_steps, self.n_atoms, 3))
+        # Create a mask for the specified atom range
+        if mask is not None:
+            n_atoms_per_molecule = len(mask)
+            n_molecules = self.n_atoms // n_atoms_per_molecule
+            atom_mask = np.tile(mask, n_molecules)
+        else:
+            atom_mask = np.ones(self.n_atoms, dtype=bool)
+
+        # Calculate the number of selected atoms
+        n_selected_atoms = np.sum(atom_mask)
+        self.n_atoms = n_selected_atoms
+
+        self.coordinates = np.empty((self.n_steps, n_selected_atoms, 3))
         if attr == 0:
             self.boxsize = np.empty((self.n_steps, 3, 2))
         count = 0
         stop = self.n_steps
-        
+
         print('--- Loading Trajectory ---')
         for step in tqdm(range(self.n_steps)):
 
