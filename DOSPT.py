@@ -3,78 +3,78 @@ from ovito.io import import_file
 from tqdm import tqdm
  
 class Trajectory:
-   def __init__(self, filename, attr, skip, fcv, fcx, f_stop=None, mask=None):
-        """
-        filename         : path to the trajectory file with sorted and format = id mol x y z fx fy fz vx vy vz
-        attr             : particles attributes to be loaded in memory = coordinates(0), forces(1) or velocities(2)
-        skip             : number of snapshots to be skipped between two configurations that are evaluated
-                           (for example, if trajectory is 9000 steps long, and skip = 10, every tenth step
-                           is evaluated, 900 steps in total; use skip = 1 to take every step of the MD)
-        fcv              : conversion factor to have velocities  [m/s]
-        fcx              : conversion factor to have positions in [m]
-        f_stop           : last frame to be loaded. If f_stop = None, all frames are loaded.
-        mask             : boolean array indicating which atoms to select in a single molecule
-        """
+    def __init__(self, filename, attr, skip, fcv, fcx, f_stop=None, mask=None):
+            """
+            filename         : path to the trajectory file with sorted and format = id mol x y z fx fy fz vx vy vz
+            attr             : particles attributes to be loaded in memory = coordinates(0), forces(1) or velocities(2)
+            skip             : number of snapshots to be skipped between two configurations that are evaluated
+                            (for example, if trajectory is 9000 steps long, and skip = 10, every tenth step
+                            is evaluated, 900 steps in total; use skip = 1 to take every step of the MD)
+            fcv              : conversion factor to have velocities  [m/s]
+            fcx              : conversion factor to have positions in [m]
+            f_stop           : last frame to be loaded. If f_stop = None, all frames are loaded.
+            mask             : boolean array indicating which atoms to select in a single molecule
+            """
 
-        pipeline = import_file(filename) #import file
-        self.n_atoms = pipeline.compute().particles.count #number of atoms
-        self.n_steps_total = pipeline.source.num_frames
+            pipeline = import_file(filename) #import file
+            self.n_atoms = pipeline.compute().particles.count #number of atoms
+            self.n_steps_total = pipeline.source.num_frames
 
-        self.skip = skip
-        if f_stop == None:
-            self.n_steps = self.n_steps_total // self.skip
-        else:
-            if f_stop > self.n_steps_total:
-                raise ValueError('f_stop > n_steps_total')
+            self.skip = skip
+            if f_stop == None:
+                self.n_steps = self.n_steps_total // self.skip
             else:
-                self.n_steps = f_stop // self.skip
+                if f_stop > self.n_steps_total:
+                    raise ValueError('f_stop > n_steps_total')
+                else:
+                    self.n_steps = f_stop // self.skip
 
-        attributes = ('coordinates', 'forces', 'velocities')
-        print('Are going to be loaded: particles {}'.format(attributes[attr]))
-        print('Trajectory frames= ',self.n_steps_total)
-        print('Frames to be loaded= ',self.n_steps)
+            attributes = ('coordinates', 'forces', 'velocities')
+            print('Are going to be loaded: particles {}'.format(attributes[attr]))
+            print('Trajectory frames= ',self.n_steps_total)
+            print('Frames to be loaded= ',self.n_steps)
 
 
-        # Create a mask for the specified atom range
-        if mask is not None:
-            n_atoms_per_molecule = len(mask)
-            n_molecules = self.n_atoms // n_atoms_per_molecule
-            atom_mask = np.tile(mask, n_molecules)
-        else:
-            atom_mask = np.ones(self.n_atoms, dtype=bool)
+            # Create a mask for the specified atom range
+            if mask is not None:
+                n_atoms_per_molecule = len(mask)
+                n_molecules = self.n_atoms // n_atoms_per_molecule
+                atom_mask = np.tile(mask, n_molecules)
+            else:
+                atom_mask = np.ones(self.n_atoms, dtype=bool)
 
-        # Calculate the number of selected atoms
-        n_selected_atoms = np.sum(atom_mask)
-        self.n_atoms = n_selected_atoms
+            # Calculate the number of selected atoms
+            n_selected_atoms = np.sum(atom_mask)
+            self.n_atoms = n_selected_atoms
 
-        self.coordinates = np.empty((self.n_steps, n_selected_atoms, 3))
-        if attr == 0:
-            self.boxsize = np.empty((self.n_steps, 3, 2))
-        count = 0
-        stop = self.n_steps
+            self.coordinates = np.empty((self.n_steps, n_selected_atoms, 3))
+            if attr == 0:
+                self.boxsize = np.empty((self.n_steps, 3, 2))
+            count = 0
+            stop = self.n_steps
 
-        print('--- Loading Trajectory ---')
-        for step in tqdm(range(self.n_steps)):
+            print('--- Loading Trajectory ---')
+            for step in tqdm(range(self.n_steps)):
 
-            frame = step * self.skip 
-            try:
-                if attr == 0:
-                    self.coordinates[step] = pipeline.compute(frame).particles.positions*fcx
-                    self.boxsize[step,:,0] = pipeline.compute(frame).cell[:,3]*fcx
-                    self.boxsize[step,:,1] = np.sum(pipeline.compute(frame).cell[:,:], axis=1)*fcx
-                elif attr == 1:
-                    self.coordinates[step] = pipeline.compute(frame).particles.forces
-                elif attr == 2:
-                    self.coordinates[step] = pipeline.compute(frame).particles.velocities*fcv
-            except:
-                if count == 0:
-                    stop = step
-                    print( 'file broken in step: ',step * self.skip)
-                count += 1
-                break
-        self.coordinates =  self.coordinates[:stop,:,:]
-        if attr == 0:
-            self.boxsize = self.boxsize[:stop,:,:]
+                frame = step * self.skip 
+                try:
+                    if attr == 0:
+                        self.coordinates[step] = pipeline.compute(frame).particles.positions[atom_mask] * fcx
+                        self.boxsize[step,:,0] = pipeline.compute(frame).cell[:,3] * fcx
+                        self.boxsize[step,:,1] = np.sum(pipeline.compute(frame).cell[:,:], axis=1) * fcx
+                    elif attr == 1:
+                        self.coordinates[step] = pipeline.compute(frame).particles.forces[atom_mask]
+                    elif attr == 2:
+                        self.coordinates[step] = pipeline.compute(frame).particles.velocities[atom_mask] * fcv
+                except:
+                    if count == 0:
+                        stop = step
+                        print( 'file broken in step: ',step * self.skip)
+                    count += 1
+                    break
+            self.coordinates =  self.coordinates[:stop,:,:]
+            if attr == 0:
+                self.boxsize = self.boxsize[:stop,:,:]
 
 
     def Return_DOS_trn(self,tstep,Dstep,temp,m,nb):
