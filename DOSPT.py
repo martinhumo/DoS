@@ -77,46 +77,61 @@ class Trajectory:
                 self.boxsize = self.boxsize[:stop,:,:]
 
 
-    def Return_DOS_trn(self,tstep,Dstep,temp,m,nb):
-        """This function return the translational (DOS). 
-        1° Takes de power spectral density  of  molecule's  mass center velocities, 
-        2° Sum it for x,y,z and whole system 
-        3° weigh the sum with kb*T 
+    def Return_DOS_trn(self, tstep, Dstep, temp, m, nb, director_vector=None):
+        """This function returns the translational DOS.
+        1° Takes the power spectral density of molecule's mass center velocities, 
+        2° Sums it for x, y, z and the whole system 
+        3° Weighs the sum with kb*T 
         Returns: freq [1/s] ; Dos_trn[tot,x,y,z] [s]  ; CMvs[x,y,z] [m/s]
         Needs:
         *self.coordinates: atoms velocities [a.u.]
         *tstep: simulation timestep [s]
-        *Dstep: every few timestep each frame is recorded in the simulation []
+        *Dstep: every few timesteps, each frame is recorded in the simulation []
         *temp: temperature [K]
-        *m: atoms mass (sorted array for molecule)[kg]
+        *m: atom masses (sorted array for molecule) [kg]
         *nb: atoms per molecule []  
         """
-        from scipy.constants import Boltzmann 
-        kb = Boltzmann     #Boltzmann's constant [J/K]   
-        nm = self.n_atoms//nb                             #molecules number
-        Ts = tstep*Dstep*self.skip                        #sampling period
-        mi = np.sum(m)                                    #molecule mass
-        T = temp                                          #simulation temperature
-        n = self.n_steps*4                                #number of points to do fft (if n>steps vector it will be zero padded) []
+        from scipy.constants import Boltzmann
+        kb = Boltzmann     # Boltzmann's constant [J/K]   
+        nm = self.n_atoms // nb                             # molecules number
+        Ts = tstep * Dstep * self.skip                      # sampling period
+        mi = np.sum(m)                                      # molecule mass
+        T = temp                                            # simulation temperature
+        n = self.n_steps * 4                                # number of points to do fft (if n > steps, vector it will be zero padded)
 
-        CMvs = np.zeros((self.n_steps,nm, 3))   #molecule mass center velocities
+        # Verificar si se proporciona director_vector, de lo contrario usar la base cartesiana estándar
+        if director_vector is None:
+            v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
+        else:
+            # Crear la base ortonormal a partir del vector director
+            nx, ny, nz = director_vector
+            v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)
+
+        CMvs = np.zeros((self.n_steps, nm, 3))   # molecule mass center velocities
         for step in range(self.n_steps):
             data_frame = np.array(self.coordinates[step])
-            for mol in np.arange(1,nm+1,1):
-                beadvs = data_frame[(mol-1)*nb:(mol*nb),:]    #beads velocitys in each particle              
-                CMvs[step,mol-1,:] = np.average(beadvs, axis=0, weights=m)   #molecule mass center velocity
-        
-        fft  = np.zeros((n//2 +1,4)) #Sigle sided fft (only freq > 0 )
+            for mol in np.arange(1, nm + 1, 1):
+                beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # beads velocity in each particle              
+                CMvs[step, mol - 1, :] = np.average(beadvs, axis=0, weights=m)   # molecule mass center velocity
+
+                # Proyección sobre la base ortogonal
+                vi = CMvs[step, mol - 1, :]
+                CMvs[step, mol - 1, 0] = np.dot(vi, v1)  # Componente en la dirección de v1
+                CMvs[step, mol - 1, 1] = np.dot(vi, v2)  # Componente en la dirección de v2
+                CMvs[step, mol - 1, 2] = np.dot(vi, v3)  # Componente en la dirección de v3
+
+        fft = np.zeros((n // 2 + 1, 4))  # Single-sided FFT (only freq > 0)
         for mol in range(nm):
-            CMv = CMvs[:,mol,:]
-            for i in range(3):   #(xyz)
-                ffti = ( Ts  / (self.n_steps-1))*(np.abs(np.fft.rfft(CMv[:,i], n=n))**2)*mi 
-                fft[:, i+1] += ffti
-                fft[:, 0] += ffti   
-        
+            CMv = CMvs[:, mol, :]
+            for i in range(3):   # (xyz)
+                ffti = (Ts / (self.n_steps - 1)) * (np.abs(np.fft.rfft(CMv[:, i], n=n)) ** 2) * mi 
+                fft[:, i + 1] += ffti
+                fft[:, 0] += ffti
+
         freq = np.fft.rfftfreq(n, d=Ts)
-        DOS = ((2.)/(kb*T))*fft
+        DOS = ((2.) / (kb * T)) * fft
         return DOS, freq, CMvs
+
 
     def Return_DOS_partition_trn(self,DOSt,freq,temp,m,nb,rho):
         """This function return the translational Dos_g_trn gas 
@@ -313,46 +328,6 @@ class Trajectory:
         DOS = ((2.)/(kb*T))*fft
         return DOS, freq, I, CMws, Imom
 
-
-
-    def compute_rposi(self,m,nb):
-        """This function calculates atom vector position to
-        molecule mass center (r_i - r_cm).
-        Needs:
-        *self.coordinates: atoms positions [a.u.]
-        *m: atom mass (sorted array for molecule)[kg]
-        *nb: atoms per molecule []
-        """
-        nm = self.n_atoms//nb #molecules number
-
-        rposis = np.zeros((self.n_steps, self.n_atoms, 3))
-        for step in range(self.n_steps):
-            data_box    = np.array(self.boxsize[step])#Step box size
-            A = (data_box[0,1] - data_box[0,0])*0.5
-            B = (data_box[1,1] - data_box[1,0])*0.5
-            C = (data_box[2,1] - data_box[2,0])*0.5
-            box = np.array([A,B,C])
-
-            data_beads = np.array(self.coordinates[step,:,:])
-            for mol in np.arange(1,nm+1,1):
-                molecule = data_beads[(mol-1)*nb:(mol*nb),:]
-
-                moleculeu = np.zeros(molecule.shape) #molecule with unwrapped cordinates
-                moleculeu[0,:] = molecule[0,:]
-                for i in range(nb-1):
-                    dist = (molecule[i+1]-moleculeu[i])
-                    for xyz in (0,1,2):
-                        if dist[xyz]>box[xyz]:
-                            moleculeu[i+1,xyz] = molecule[i+1,xyz] - box[xyz]*2.
-                        elif dist[xyz]<=(-box[xyz]):
-                            moleculeu[i+1,xyz] = molecule[i+1,xyz] + box[xyz]*2.
-                        else:
-                            moleculeu[i+1,xyz] = molecule[i+1,xyz]
-                CM = np.average(moleculeu, axis=0, weights=m)
-                rposis[step,(mol-1)*nb:(mol*nb),:] = moleculeu[:,:] - CM[:]
-        return rposis
-
-
     def Return_DOS_partition_rot(self,DOSt,freq,temp,m,nb,rho):
         """This function return the translational Dos_g_trn gas
         and Dos_s_trn solid, Delta and fluidicity f.
@@ -460,7 +435,7 @@ class Trajectory:
 
         return (E, S, A, Wes, Weg, Wss, Wsg, Was, Wag) if weight_f else (E, S, A)
 
-    def Return_DOS_vib(self,rposis,tstep,Dstep,temp,m,nb):
+    def Return_DOS_vib(self, rposis, tstep, Dstep, temp, m, nb, director_vector=None):
         """This function return the vibrational (DOS).
         1° calculates the molecule mass translational velocity;
         2° Calculates the molecule angular velocity around principal axis;
@@ -477,59 +452,75 @@ class Trajectory:
         *temp: temperature [K]
         *m: atom mass (sorted array for molecule)[kg]
         *nb: atoms per molecule []
+        * director_vector: director vector list (default: None)
 
         References:
         (1)Application of the Eckart frame to soft matter: Rotation of star polymers under shear flow [2017]
         (2)Master thesis 2PT bernhartdt [2016]
         """
-        from scipy.constants import Boltzmann 
-        kb = Boltzmann     #Boltzmann's constant [J/K]   
-        nm = self.n_atoms//nb                             #molecules number
-        Ts = tstep*float(Dstep)*float(self.skip)                        #sampling period
-        T = temp                                          #simulation temperature
-        n = self.n_steps*4                                #number of points to do fft (if n>steps vector it will be zero padded) []
 
-        CMvs = np.zeros((self.n_steps,nm, 3))   #molecule mass center velocities
+        from scipy.constants import Boltzmann
+        kb = Boltzmann     # Boltzmann's constant [J/K]   
+        nm = self.n_atoms // nb                             # número de moléculas
+        Ts = tstep * float(Dstep) * float(self.skip)        # periodo de muestreo
+        T = temp                                            # temperatura de la simulación
+        n = self.n_steps * 4                                # número de puntos para hacer la FFT
+
+                                # Devuelve la base ortonormal
+
+        # Verificar si se proporciona director_vector, de lo contrario usar la base cartesiana estándar
+        if director_vector is None:
+            v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
+        else:
+            # Crear la base ortonormal a partir del vector director
+            nx, ny, nz = director_vector
+            v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)
+
+        CMvs = np.zeros((self.n_steps, nm, 3))              # velocidades del centro de masa
         for step in range(self.n_steps):
             data_frame = np.array(self.coordinates[step])
-            for mol in np.arange(1,nm+1,1):
-                beadvs = data_frame[(mol-1)*nb:(mol*nb),:]    #beads velocities in each molecule
-                CMvs[step,mol-1,:] = np.average(beadvs, axis=0, weights=m)   #molecule mass center velocity
+            for mol in np.arange(1, nm + 1, 1):
+                beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # velocidades de los átomos
+                CMvs[step, mol - 1, :] = np.average(beadvs, axis=0, weights=m)   # promedio ponderado de masa
 
+        CMws  = np.zeros((self.n_steps, nm, 3))             # velocidades angulares
+        vibvs = np.zeros((self.n_steps, self.n_atoms, 3))   # velocidades vibracionales
 
-
-        CMws  = np.zeros((self.n_steps,nm, 3))   #molecule angular velocity
-        vibvs = np.zeros((self.n_steps,self.n_atoms, 3)) # atoms vibrational velocities
-        for mol in np.arange(1,nm+1,1):
+        # Proyectar las velocidades vibracionales sobre la terna ortogonal
+        for mol in np.arange(1, nm + 1, 1):
             for step in range(self.n_steps):
+                data_rposi = rposis[step, (mol - 1) * nb:(mol * nb), :]
+                data_vicm = self.coordinates[step, (mol - 1) * nb:(mol * nb), :] - CMvs[step, mol - 1, :]
 
-                data_rposi = rposis[step,(mol-1)*nb:(mol*nb),:]  #See eq 2 and 3 in: (1)
-                data_vicm = self.coordinates[step,(mol-1)*nb:(mol*nb),:] - CMvs[step,mol-1,:]
+                L = np.sum([np.cross(data_rposi[i, :], data_vicm[i, :] * m[i]) for i in range(nb)], axis=0)
+                J = np.sum([m[i] * (np.dot(data_rposi[i, :], data_rposi[i, :]) * np.identity(3) -
+                                    np.tensordot(data_rposi[i, :], data_rposi[i, :], axes=0)) for i in range(nb)], axis=0)
 
-                L = np.sum([np.cross(data_rposi[i,:],data_vicm[i,:]*m[i]) for i in range(nb) ],axis=0) #angular momentum
-                J = np.sum( [ m[i]*(np.dot(data_rposi[i,:],data_rposi[i,:])*np.identity(3) \
-                            - np.tensordot(data_rposi[i,:],data_rposi[i,:],axes=0)) for i in range(nb) ],axis=0) #inertia matrix
+                CMws[step, mol - 1, :] = np.dot(np.linalg.inv(J), L)
 
-                CMws[step,mol-1,:] = np.dot(np.linalg.inv(J),L)
-                vibvs[step,(mol-1)*nb:(mol*nb),:] = (np.array(self.coordinates[step,(mol-1)*nb:(mol*nb),:]) - \
-                                                     (CMvs[step,mol-1,:] + np.cross(CMws[step,mol-1,:], rposis[step,(mol-1)*nb:(mol*nb),:])))
+                vibvs[step, (mol - 1) * nb:(mol * nb), :] = (np.array(self.coordinates[step, (mol - 1) * nb:(mol * nb), :]) -
+                                                            (CMvs[step, mol - 1, :] +
+                                                            np.cross(CMws[step, mol - 1, :], rposis[step, (mol - 1) * nb:(mol * nb), :])))
 
+                # Proyección sobre la base ortogonal
+                for i in range(nb):
+                    vi = vibvs[step, (mol - 1) * nb + i, :]
+                    vibvs[step, (mol - 1) * nb + i, 0] = np.dot(vi, v1)  # Componente en dirección de v1
+                    vibvs[step, (mol - 1) * nb + i, 1] = np.dot(vi, v2)  # Componente en dirección de v2
+                    vibvs[step, (mol - 1) * nb + i, 2] = np.dot(vi, v3)  # Componente en dirección de v3
 
-
-        fft  = np.zeros((n//2 +1, 4)) #Sigle sided fft (only freq > 0 )
-        m_system = np.tile(m, nm) #Array with system masses
+        fft  = np.zeros((n // 2 + 1, 4))                    # FFT de una sola cara (solo freq > 0)
+        m_system = np.tile(m, nm)                           # Vector de masas del sistema
         for atom in range(self.n_atoms):
-            vibv = vibvs[:,atom,:]
-            for i in range(3):   #(xyz)
-                ffti = ( Ts  / (self.n_steps-1))*(np.abs(np.fft.rfft(vibv[:,i], n=n))**2)*m_system[atom]
-                fft[:,i+1] += ffti
-                fft[:,0] += ffti
+            vibv = vibvs[:, atom, :]
+            for i in range(3):   # (xyz)
+                ffti = (Ts / (self.n_steps - 1)) * (np.abs(np.fft.rfft(vibv[:, i], n=n)) ** 2) * m_system[atom]
+                fft[:, i + 1] += ffti
+                fft[:, 0] += ffti
 
         freq = np.fft.rfftfreq(n, d=Ts)
-        DOS = ((2.)/(kb*T))*fft
+        DOS = ((2.) / (kb * T)) * fft
         return DOS, freq
-
-
 
     def Return_DOS_partition_vib(self,DOSt,freq):
         """This function return the vibrational Dos_s_vib solid,
@@ -603,3 +594,57 @@ class Trajectory:
         A /= nm
 
         return (E, S, A, Wes, Wss, Was) if weight_f else (E, S, A)
+
+#Auxiliar functions
+    def compute_rposi(self,m,nb):
+        """This function calculates atom vector position to
+        molecule mass center (r_i - r_cm).
+        Needs:
+        *self.coordinates: atoms positions [a.u.]
+        *m: atom mass (sorted array for molecule)[kg]
+        *nb: atoms per molecule []
+        """
+        nm = self.n_atoms//nb #molecules number
+
+        rposis = np.zeros((self.n_steps, self.n_atoms, 3))
+        for step in range(self.n_steps):
+            data_box    = np.array(self.boxsize[step])#Step box size
+            A = (data_box[0,1] - data_box[0,0])*0.5
+            B = (data_box[1,1] - data_box[1,0])*0.5
+            C = (data_box[2,1] - data_box[2,0])*0.5
+            box = np.array([A,B,C])
+
+            data_beads = np.array(self.coordinates[step,:,:])
+            for mol in np.arange(1,nm+1,1):
+                molecule = data_beads[(mol-1)*nb:(mol*nb),:]
+
+                moleculeu = np.zeros(molecule.shape) #molecule with unwrapped cordinates
+                moleculeu[0,:] = molecule[0,:]
+                for i in range(nb-1):
+                    dist = (molecule[i+1]-moleculeu[i])
+                    for xyz in (0,1,2):
+                        if dist[xyz]>box[xyz]:
+                            moleculeu[i+1,xyz] = molecule[i+1,xyz] - box[xyz]*2.
+                        elif dist[xyz]<=(-box[xyz]):
+                            moleculeu[i+1,xyz] = molecule[i+1,xyz] + box[xyz]*2.
+                        else:
+                            moleculeu[i+1,xyz] = molecule[i+1,xyz]
+                CM = np.average(moleculeu, axis=0, weights=m)
+                rposis[step,(mol-1)*nb:(mol*nb),:] = moleculeu[:,:] - CM[:]
+        return rposis
+
+    def orthogonal_basis(self, nx, ny, nz):
+        """Calcula una base ortogonal usando el vector director (nx, ny, nz)."""
+        v1 = np.array([nx, ny, nz])                     # Vector director
+        v1 = v1 / np.linalg.norm(v1)                    # Normalizar vector director
+
+        # Vector ortogonal (escogemos arbitrariamente uno no paralelo a v1)
+        if abs(v1[0]) < abs(v1[2]):
+            v2 = np.array([1, 0, -v1[0] / v1[2]])
+        else:
+            v2 = np.array([0, 1, -v1[1] / v1[2]])
+
+        v2 = v2 / np.linalg.norm(v2)                    # Normalizar el segundo vector
+        v3 = np.cross(v1, v2)                           # El tercer vector es el producto cruzado
+
+        return v1, v2, v3   
