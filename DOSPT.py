@@ -90,6 +90,7 @@ class Trajectory:
         *temp: temperature [K]
         *m: atom masses (sorted array for molecule) [kg]
         *nb: atoms per molecule []  
+        director_vector: DataFrame with the director vector directions for each frame
         """
         from scipy.constants import Boltzmann
         kb = Boltzmann     # Boltzmann's constant [J/K]   
@@ -99,17 +100,17 @@ class Trajectory:
         T = temp                                            # simulation temperature
         n = self.n_steps * 4                                # number of points to do fft (if n > steps, vector it will be zero padded)
 
-        # Verificar si se proporciona director_vector, de lo contrario usar la base cartesiana estándar
-        if director_vector is None:
-            v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
-        else:
-            # Crear la base ortonormal a partir del vector director
-            nx, ny, nz = director_vector
-            v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)
-
         CMvs = np.zeros((self.n_steps, nm, 3))   # molecule mass center velocities
+
         for step in range(self.n_steps):
             data_frame = np.array(self.coordinates[step])
+            # Obtener el vector director para este frame
+            if director_vector is not None:
+                nx, ny, nz = director_vector.iloc[step, :]  # Filas de Vecdirx, Vecdiry, Vecdirz
+                v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)  # Crear base ortonormal a partir del vector director
+            else:
+                v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
+
             for mol in np.arange(1, nm + 1, 1):
                 beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # beads velocity in each particle              
                 CMvs[step, mol - 1, :] = np.average(beadvs, axis=0, weights=m)   # molecule mass center velocity
@@ -131,7 +132,7 @@ class Trajectory:
         freq = np.fft.rfftfreq(n, d=Ts)
         DOS = ((2.) / (kb * T)) * fft
         return DOS, freq, CMvs
-
+    
 
     def Return_DOS_partition_trn(self,DOSt,freq,temp,m,nb,rho):
         """This function return the translational Dos_g_trn gas 
@@ -436,55 +437,51 @@ class Trajectory:
         return (E, S, A, Wes, Weg, Wss, Wsg, Was, Wag) if weight_f else (E, S, A)
 
     def Return_DOS_vib(self, rposis, tstep, Dstep, temp, m, nb, director_vector=None):
-        """This function return the vibrational (DOS).
-        1° calculates the molecule mass translational velocity;
-        2° Calculates the molecule angular velocity around principal axis;
-        3° Calculates atoms vibrational velocities.
-        4° Takes de power spectral density  of  atoms  mass center vibrational velocities,
-        5° Sum it for x,y,z and whole system
-        6° weigh the sum with kb*T
-        Returns: freq [1/s] ; Dos_vib[tot,x,y,z] [s]
-        Needs:
-        *self.coordinates: velocities [a.u.]
-        *rposi: distance to mass center [m]
-        *tstep: simulation timestep [s]
-        *Dstep: every few timestep each frame is recorded in the simulation []
-        *temp: temperature [K]
-        *m: atom mass (sorted array for molecule)[kg]
-        *nb: atoms per molecule []
-        * director_vector: director vector list (default: None)
-
-        References:
-        (1)Application of the Eckart frame to soft matter: Rotation of star polymers under shear flow [2017]
-        (2)Master thesis 2PT bernhartdt [2016]
         """
-
+        Esta función devuelve la DOS vibracional (Density of States).
+        1° Calcula la velocidad translacional del centro de masa de la molécula.
+        2° Calcula la velocidad angular de la molécula alrededor de su eje principal.
+        3° Calcula las velocidades vibracionales de los átomos.
+        4° Toma la densidad espectral de potencia de las velocidades vibracionales de los átomos.
+        5° Suma la densidad para x, y, z y para todo el sistema.
+        6° Pondera la suma con kb*T.
+        
+        Parámetros:
+        *self.coordinates: velocidades [a.u.]
+        *rposis: distancia al centro de masa [m]
+        *tstep: intervalo de tiempo de simulación [s]
+        *Dstep: cada cuántos intervalos de tiempo se registra un frame []
+        *temp: temperatura [K]
+        *m: masa del átomo (array ordenado por molécula) [kg]
+        *nb: número de átomos por molécula []
+        *director_vector: DataFrame de vectores directores (opcional)
+        """
+        
         from scipy.constants import Boltzmann
-        kb = Boltzmann     # Boltzmann's constant [J/K]   
-        nm = self.n_atoms // nb                             # número de moléculas
-        Ts = tstep * float(Dstep) * float(self.skip)        # periodo de muestreo
-        T = temp                                            # temperatura de la simulación
-        n = self.n_steps * 4                                # número de puntos para hacer la FFT
+        kb = Boltzmann     # Constante de Boltzmann [J/K]   
+        nm = self.n_atoms // nb                             # Número de moléculas
+        Ts = tstep * float(Dstep) * float(self.skip)        # Periodo de muestreo
+        T = temp                                            # Temperatura de la simulación
+        n = self.n_steps * 4                                # Número de puntos para hacer la FFT
 
-                                # Devuelve la base ortonormal
+        CMvs = np.zeros((self.n_steps, nm, 3))              # Velocidades del centro de masa
 
-        # Verificar si se proporciona director_vector, de lo contrario usar la base cartesiana estándar
-        if director_vector is None:
-            v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
-        else:
-            # Crear la base ortonormal a partir del vector director
-            nx, ny, nz = director_vector
-            v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)
-
-        CMvs = np.zeros((self.n_steps, nm, 3))              # velocidades del centro de masa
         for step in range(self.n_steps):
             data_frame = np.array(self.coordinates[step])
-            for mol in np.arange(1, nm + 1, 1):
-                beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # velocidades de los átomos
-                CMvs[step, mol - 1, :] = np.average(beadvs, axis=0, weights=m)   # promedio ponderado de masa
 
-        CMws  = np.zeros((self.n_steps, nm, 3))             # velocidades angulares
-        vibvs = np.zeros((self.n_steps, self.n_atoms, 3))   # velocidades vibracionales
+            # Obtener el vector director para este frame
+            if director_vector is not None:
+                nx, ny, nz = director_vector.iloc[step, :]  # Filas de Vecdirx, Vecdiry, Vecdirz
+                v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)  # Crear base ortonormal a partir del vector director
+            else:
+                v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
+
+            for mol in np.arange(1, nm + 1, 1):
+                beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # Velocidades de los átomos
+                CMvs[step, mol - 1, :] = np.average(beadvs, axis=0, weights=m)   # Promedio ponderado de masa
+
+        CMws  = np.zeros((self.n_steps, nm, 3))             # Velocidades angulares
+        vibvs = np.zeros((self.n_steps, self.n_atoms, 3))   # Velocidades vibracionales
 
         # Proyectar las velocidades vibracionales sobre la terna ortogonal
         for mol in np.arange(1, nm + 1, 1):
@@ -521,6 +518,7 @@ class Trajectory:
         freq = np.fft.rfftfreq(n, d=Ts)
         DOS = ((2.) / (kb * T)) * fft
         return DOS, freq
+
 
     def Return_DOS_partition_vib(self,DOSt,freq):
         """This function return the vibrational Dos_s_vib solid,
