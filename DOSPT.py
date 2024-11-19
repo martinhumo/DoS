@@ -90,7 +90,7 @@ class Trajectory:
         *temp: temperature [K]
         *m: atom masses (sorted array for molecule) [kg]
         *nb: atoms per molecule []  
-        director_vector: DataFrame with the director vector directions for each frame
+        *director_vector: vector director promedio para toda la simulación (opcional)
         """
         from scipy.constants import Boltzmann
         kb = Boltzmann     # Boltzmann's constant [J/K]   
@@ -101,15 +101,16 @@ class Trajectory:
         n = self.n_steps * 4                                # number of points to do fft (if n > steps, vector it will be zero padded)
 
         CMvs = np.zeros((self.n_steps, nm, 3))   # molecule mass center velocities
+        # Obtener el vector director para este frame
+        if director_vector is not None:
+            nx, ny, nz = director_vector                    # Filas de Vecdirx, Vecdiry, Vecdirz
+            v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)  # Crear base ortonormal a partir del vector director
+        else:
+            v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
 
         for step in range(self.n_steps):
             data_frame = np.array(self.coordinates[step])
-            # Obtener el vector director para este frame
-            if director_vector is not None:
-                nx, ny, nz = director_vector.iloc[step, :]  # Filas de Vecdirx, Vecdiry, Vecdirz
-                v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)  # Crear base ortonormal a partir del vector director
-            else:
-                v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
+
 
             for mol in np.arange(1, nm + 1, 1):
                 beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # beads velocity in each particle              
@@ -205,10 +206,10 @@ class Trajectory:
         elif stat == 'q':
             Wes = Bhv*0.5 + Bhv / (np.exp(Bhv)-1)#Quantum weight
             Wes[0] = 1. 
-        Es = integrate.simps(cDOSs*Wes,x=vfreq)
+        Es = integrate.simpson(cDOSs*Wes,x=vfreq)
 
         Weg = 0.5
-        Eg =  integrate.simps(cDOSg*Weg,x=vfreq)
+        Eg =  integrate.simpson(cDOSg*Weg,x=vfreq)
 
         E = (Es+Eg)/B
         E /= nm
@@ -221,12 +222,12 @@ class Trajectory:
         elif stat == 'q':
             Wss = Bhv / (np.exp(Bhv)-1) - np.log(1 - np.exp(-Bhv)) #quatum weighting
             Wss[0] = 0. 
-        Ss =  integrate.simps(cDOSs*Wss,x=vfreq)
+        Ss =  integrate.simpson(cDOSs*Wss,x=vfreq)
 
         y = (f**(5./2.)) / (Delta**(3./2.))
         z = (1 + y + y**2 - y**3 ) / ((1 - y)**3)
         Wsg =(1./3.)*((5./2.) + np.log(((2.*np.pi*mi*kb*T)/ h**2)**(3./2.) * ((V*z)/(f*nm))) + y*(3*y-4)/(1-y)**2 )
-        Sg =  integrate.simps(cDOSg*Wsg,x=vfreq)
+        Sg =  integrate.simpson(cDOSg*Wsg,x=vfreq)
 
         S =kb*(Ss+Sg)
         S /= nm
@@ -239,10 +240,10 @@ class Trajectory:
         elif stat == 'q':
             Was = np.log((1-np.exp(-Bhv))/(np.exp(-Bhv/2.))) #quatum weighting
             Was[0] = np.log(1.e-323)
-        As = integrate.simps(cDOSs*Was,x=vfreq)
+        As = integrate.simpson(cDOSs*Was,x=vfreq)
 
         Wag = Weg - Wsg
-        Ag =  integrate.simps(cDOSg*Wag,x=vfreq)
+        Ag =  integrate.simpson(cDOSg*Wag,x=vfreq)
 
         A =  (As+Ag)/B
         A /= nm
@@ -395,10 +396,10 @@ class Trajectory:
         elif stat == 'q':
             Wes = Bhv*0.5 + Bhv / (np.exp(Bhv)-1)#Quantum weight
             Wes[0] = 1.
-        Es = integrate.simps(cDOSs*Wes,x=vfreq)
+        Es = integrate.simpson(cDOSs*Wes,x=vfreq)
 
         Weg = 0.5
-        Eg =  integrate.simps(cDOSg*Weg,x=vfreq)
+        Eg =  integrate.simpson(cDOSg*Weg,x=vfreq)
 
         E =  (Es+Eg)/B
         E /= nm
@@ -410,11 +411,11 @@ class Trajectory:
         elif stat == 'q':
             Wss = Bhv / (np.exp(Bhv)-1) - np.log(1 - np.exp(-Bhv)) #quatum weighting
             Wss[0] = 0.
-        Ss =  integrate.simps(cDOSs*Wss,x=vfreq)
+        Ss =  integrate.simpson(cDOSs*Wss,x=vfreq)
 
         tit= np.array([ (h**2) / (8.*np.pi*I[i]*kb) for i in range(3)])
         Wsg = (1./3.)*np.log( ( ((np.pi**0.5)*np.exp(3/2)) / sigma ) *(T**3 / (tit[0]*tit[1]*tit[2])**0.5)) # Eq. 25b Lin2010
-        Sg =  integrate.simps(cDOSg*Wsg,x=vfreq)
+        Sg =  integrate.simpson(cDOSg*Wsg,x=vfreq)
 
         S =kb*(Ss+Sg)
         S /= nm
@@ -426,10 +427,10 @@ class Trajectory:
         elif stat == 'q':
             Was = np.log((1-np.exp(-Bhv))/(np.exp(-Bhv/2.))) #quatum weighting
             Was[0] = np.log(1.e-323)
-        As = integrate.simps(cDOSs*Was,x=vfreq)
+        As = integrate.simpson(cDOSs*Was,x=vfreq)
 
         Wag = Weg - Wsg
-        Ag =  integrate.simps(cDOSg*Wag,x=vfreq)
+        Ag =  integrate.simpson(cDOSg*Wag,x=vfreq)
 
         A =  (As+Ag)/B
         A /= nm
@@ -454,7 +455,7 @@ class Trajectory:
         *temp: temperatura [K]
         *m: masa del átomo (array ordenado por molécula) [kg]
         *nb: número de átomos por molécula []
-        *director_vector: DataFrame de vectores directores (opcional)
+        *director_vector: vector director promedio para toda la simulación (opcional)
         """
         
         from scipy.constants import Boltzmann
@@ -465,16 +466,17 @@ class Trajectory:
         n = self.n_steps * 4                                # Número de puntos para hacer la FFT
 
         CMvs = np.zeros((self.n_steps, nm, 3))              # Velocidades del centro de masa
+        
+        # Obtener el vector director para este frame
+        if director_vector is not None:
+            nx, ny, nz = director_vector                    # Filas de Vecdirx, Vecdiry, Vecdirz
+            v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)  # Crear base ortonormal a partir del vector director
+        else:
+            v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
 
         for step in range(self.n_steps):
             data_frame = np.array(self.coordinates[step])
 
-            # Obtener el vector director para este frame
-            if director_vector is not None:
-                nx, ny, nz = director_vector.iloc[step, :]  # Filas de Vecdirx, Vecdiry, Vecdirz
-                v1, v2, v3 = self.orthogonal_basis(nx, ny, nz)  # Crear base ortonormal a partir del vector director
-            else:
-                v1, v2, v3 = np.eye(3)  # Base cartesiana estándar: [1,0,0], [0,1,0], [0,0,1]
 
             for mol in np.arange(1, nm + 1, 1):
                 beadvs = data_frame[(mol - 1) * nb:(mol * nb), :]    # Velocidades de los átomos
@@ -562,7 +564,7 @@ class Trajectory:
         elif stat == 'q':
             Wes = Bhv*0.5 + Bhv / (np.exp(Bhv)-1)#Quantum weight
             Wes[0] = 1.
-        Es = integrate.simps(cDOSs*Wes,x=vfreq)
+        Es = integrate.simpson(cDOSs*Wes,x=vfreq)
 
         E = (Es)/B
         E /= nm
@@ -574,7 +576,7 @@ class Trajectory:
         elif stat == 'q':
             Wss = Bhv / (np.exp(Bhv)-1) - np.log(1 - np.exp(-Bhv)) #quatum weighting
             Wss[0] = 0.
-        Ss =  integrate.simps(cDOSs*Wss,x=vfreq)
+        Ss =  integrate.simpson(cDOSs*Wss,x=vfreq)
 
         S =kb*(Ss)
         S /= nm
@@ -586,7 +588,7 @@ class Trajectory:
         elif stat == 'q':
             Was = np.log((1-np.exp(-Bhv))/(np.exp(-Bhv/2.))) #quatum weighting
             Was[0] = np.log(1.e-323)
-        As = integrate.simps(cDOSs*Was,x=vfreq)
+        As = integrate.simpson(cDOSs*Was,x=vfreq)
 
         A =  (As)/B
         A /= nm
