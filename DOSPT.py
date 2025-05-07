@@ -634,17 +634,20 @@ class Trajectory:
         return rposis
 
     def orthogonal_basis(self, nx, ny, nz):
-        """Calcula una base ortogonal usando el vector director (nx, ny, nz)."""
-        v1 = np.array([nx, ny, nz])                     # Vector director
-        v1 = v1 / np.linalg.norm(v1)                    # Normalizar vector director
+        # Vector director normalizado
+        v1 = np.array([nx, ny, nz])
+        v1 /= np.linalg.norm(v1)
 
-        # Vector ortogonal (escogemos arbitrariamente uno no paralelo a v1)
-        if abs(v1[0]) < abs(v1[2]):
-            v2 = np.array([1, 0, -v1[0] / v1[2]])
-        else:
-            v2 = np.array([0, 1, -v1[1] / v1[2]])
+        # Vector auxiliar no paralelo (e.g., eje Z)
+        aux = np.array([0, 0, 1])
+        if np.allclose(v1, aux):  # si es paralelo al eje z
+            aux = np.array([0, 1, 0])  # usar eje y
 
-        v2 = v2 / np.linalg.norm(v2)                    # Normalizar el segundo vector
-        v3 = np.cross(v1, v2)                           # El tercer vector es el producto cruzado
+        # Gram-Schmidt para obtener v2
+        v2 = aux - np.dot(aux, v1) * v1
+        v2 /= np.linalg.norm(v2)
 
-        return v1, v2, v3   
+        # v3 ortogonal por producto vectorial
+        v3 = np.cross(v1, v2)
+
+        return v1, v2, v3
